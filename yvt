@@ -98,6 +98,14 @@ MESSAGES=(
     ["kk_volume_error"]="Орындық туындылығы 0 мен 0,6 аралығында сандық болуы керек"
     ["kk_invalid_translate_language"]="Қате аударма тілі. Толықтыру үшін қолданылатын тілдер: en, ru, kk."
     ["kk_invalid_source_language"]="Қате бастапқы тіл. Толықтыру үшін қолданылатын тілдер: en, ru, kk, zh, ko, ar, fr, it, es, de, ja."
+    
+    #new options
+    ["en_args_cookies"]="Path to cookies file"
+    ["en_args_format"]="Sort format (res,ext:mp4:aac)"
+    ["ru_args_cookies"]="Путь к файлу cookies"
+    ["ru_args_format"]="Сортировка форматов (res,ext:mp4:aac)"
+    ["kk_args_cookies"]="Cookies файлының жолы"
+    ["kk_args_format"]="Пішімдерді сұрыптау (res,ext:mp4:aac)"
 )
 
 # Checking the availability of a translation for the original language
@@ -145,6 +153,8 @@ parse_args() {
         echo -e "\e[1m${MESSAGES[${lang_app}_examples]}:\e[0m"
         echo -e "  yvt -v 0.5 -b 800 'https://www.youtube.com/watch?v=example_video'"
         echo -e "  yvt -v .2 -b 500 -f ./linklist.txt"
+        echo -e "  -C — ${MESSAGES[${lang_app}_args_cookies]}"
+        echo -e "  -S — ${MESSAGES[${lang_app}_args_format]}"
     }
 
     # Check the number of arguments passed
@@ -153,7 +163,7 @@ parse_args() {
         exit 1
     fi
 
-    while getopts ":c:v:b:f:o:l:s:-:" opt; do
+    while getopts ":c:v:b:f:o:l:s:C:S:-:" opt; do
         case ${opt} in
         v)
             # Check if the entered value is in the valid range
@@ -224,6 +234,16 @@ parse_args() {
                 exit 1
             fi
             ;;
+        C )
+            if [ ! -f "$OPTARG" ]; then
+                echo "Cookies file not found: $OPTARG" >&2
+                exit 1
+            fi
+            cookies_file=$OPTARG
+            ;;
+        S )
+            format_sort=$OPTARG
+            ;;    
         -)
             case "${OPTARG}" in
             help)
@@ -269,6 +289,10 @@ parse_link() {
     tput el
     echo -e "🔗 ${MESSAGES[${lang_app}_link]}: \e[1m$video_link\e[0m"
 
+
+
+
+
     if nvidia-smi &>/dev/null; then
         cuda="-hwaccel cuda -hwaccel_output_format cuda"
     fi
@@ -297,7 +321,11 @@ parse_link() {
     mkdir $temp_dir && mkdir $temp_video_dir && mkdir $temp_audio_dir && mkdir $temp_subs_dir
 
     attempts=0
-    while ! yt-dlp --progress --quiet -o "$temp_video" $video_link && ((attempts < 10)); do
+    yt_dlp_args=""
+    [ -n "$cookies_file" ] && yt_dlp_args+="--cookies $cookies_file "
+    [ -n "$format_sort" ] && yt_dlp_args+="-S $format_sort "
+
+    while ! yt-dlp --progress --quiet -o "$temp_video"  $yt_dlp_args $video_link && ((attempts < 10)); do
         ((attempts++))
         echo "${MESSAGES[${lang_app}_loading_error]} ${MESSAGES[${lang_app}_retrying]}$attempts"
         sleep 5
